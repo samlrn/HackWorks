@@ -1,8 +1,11 @@
 import os
+import asyncio
 from supabase import create_client, Client
 from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 _supabase_client: Optional[Client] = None
+_executor = ThreadPoolExecutor(max_workers=5)
 
 def _get_supabase_client() -> Client:
     """Initialize and return Supabase client."""
@@ -21,17 +24,20 @@ async def add_subscriber(name: str, phone_number: str, zip_code: str, role: str)
     Add a new subscriber to the database.
     """
     try:
-        client = _get_supabase_client()
+        def _insert():
+            client = _get_supabase_client()
+            data = {
+                "name": name,
+                "phone_number": phone_number,
+                "zip_code": zip_code,
+                "role": role,
+                "active": True
+            }
+            result = client.table("subscribers").insert(data).execute()
+            return result
 
-        data = {
-            "name": name,
-            "phone_number": phone_number,
-            "zip_code": zip_code,
-            "role": role,
-            "active": True
-        }
-
-        result = client.table("subscribers").insert(data).execute()
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(_executor, _insert)
 
         if result.data and len(result.data) > 0:
             return {
@@ -47,6 +53,7 @@ async def add_subscriber(name: str, phone_number: str, zip_code: str, role: str)
             }
 
     except Exception as e:
+        print(f"Error adding subscriber: {str(e)}")
         return {
             "success": False,
             "subscriber": None,
@@ -59,11 +66,13 @@ async def get_subscribers_by_zip(zip_code: str) -> List[dict]:
     Get all active subscribers for a given zip code.
     """
     try:
-        client = _get_supabase_client()
+        def _query():
+            client = _get_supabase_client()
+            result = client.table("subscribers").select("*").eq("zip_code", zip_code).eq("active", True).execute()
+            return result.data if result.data else []
 
-        result = client.table("subscribers").select("*").eq("zip_code", zip_code).eq("active", True).execute()
-
-        return result.data if result.data else []
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, _query)
 
     except Exception as e:
         print(f"Error fetching subscribers: {str(e)}")
@@ -75,12 +84,13 @@ async def get_all_active_zip_codes() -> List[str]:
     Get list of all unique zip codes with active subscribers.
     """
     try:
-        client = _get_supabase_client()
+        def _query():
+            client = _get_supabase_client()
+            result = client.table("subscribers").select("zip_code").eq("active", True).execute()
+            return list(set([row["zip_code"] for row in (result.data if result.data else []) if row.get("zip_code")]))
 
-        result = client.table("subscribers").select("zip_code").eq("active", True).execute()
-
-        zip_codes = list(set([row["zip_code"] for row in result.data if row.get("zip_code")]))
-        return zip_codes
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, _query)
 
     except Exception as e:
         print(f"Error fetching zip codes: {str(e)}")
@@ -92,16 +102,19 @@ async def log_alert(zip_code: str, aqi_value: int, alert_message: str, recipient
     Log an alert event to the database.
     """
     try:
-        client = _get_supabase_client()
+        def _insert():
+            client = _get_supabase_client()
+            data = {
+                "zip_code": zip_code,
+                "aqi_value": aqi_value,
+                "alert_message": alert_message,
+                "recipients_count": recipients_count
+            }
+            result = client.table("alert_log").insert(data).execute()
+            return result
 
-        data = {
-            "zip_code": zip_code,
-            "aqi_value": aqi_value,
-            "alert_message": alert_message,
-            "recipients_count": recipients_count
-        }
-
-        result = client.table("alert_log").insert(data).execute()
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(_executor, _insert)
 
         if result.data and len(result.data) > 0:
             return {
@@ -117,6 +130,7 @@ async def log_alert(zip_code: str, aqi_value: int, alert_message: str, recipient
             }
 
     except Exception as e:
+        print(f"Error logging alert: {str(e)}")
         return {
             "success": False,
             "alert_log": None,
@@ -129,11 +143,13 @@ async def get_subscriber_count(zip_code: str) -> int:
     Get count of active subscribers for a given zip code.
     """
     try:
-        client = _get_supabase_client()
+        def _count():
+            client = _get_supabase_client()
+            result = client.table("subscribers").select("id", count="exact").eq("zip_code", zip_code).eq("active", True).execute()
+            return result.count if result.count is not None else 0
 
-        result = client.table("subscribers").select("id", count="exact").eq("zip_code", zip_code).eq("active", True).execute()
-
-        return result.count if result.count is not None else 0
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, _count)
 
     except Exception as e:
         print(f"Error counting subscribers: {str(e)}")

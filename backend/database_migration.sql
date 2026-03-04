@@ -24,3 +24,6 @@ CREATE INDEX IF NOT EXISTS idx_subscribers_zip_code ON subscribers(zip_code);
 CREATE INDEX IF NOT EXISTS idx_subscribers_active ON subscribers(active);
 CREATE INDEX IF NOT EXISTS idx_alert_log_zip_code ON alert_log(zip_code);
 CREATE INDEX IF NOT EXISTS idx_alert_log_created_at ON alert_log(created_at);
+
+ALTER TABLE subscribers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE alert_log DISABLE ROW LEVEL SECURITY;

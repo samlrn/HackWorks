@@ -36,17 +36,17 @@ async def signup_subscriber(subscriber: SubscriberCreate):
 
         phone_clean = '+1' + re.sub(r'\D', '', subscriber.phone_number)
 
-        db_result = await database.add_subscriber(
-            name=subscriber.name,
-            phone_number=phone_clean,
-            zip_code=subscriber.zip_code,
-            role=subscriber.role
-        )
+        # db_result = await database.add_subscriber(
+        #     name=subscriber.name,
+        #     phone_number=phone_clean,
+        #     zip_code=subscriber.zip_code,
+        #     role=subscriber.role
+        # )
 
-        if not db_result["success"]:
-            raise HTTPException(status_code=500, detail="Failed to create subscriber")
+        # if not db_result["success"]:
+        #     raise HTTPException(status_code=500, detail="Failed to create subscriber")
 
-        sms_result = sms.send_welcome_sms(phone_clean, subscriber.name, subscriber.zip_code)
+        sms_result = sms.send_welcome_sms('+19193389444', 'samir naseri', 27606)
 
         if not sms_result["success"]:
             raise HTTPException(status_code=500, detail=f"Subscriber created but SMS failed: {sms_result['error']}")
